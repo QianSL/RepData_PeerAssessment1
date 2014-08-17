@@ -1,20 +1,91 @@
 # Reproducible Research: Peer Assessment 1
-
+============================================
 
 ## Loading and preprocessing the data
+Load data from CSV file and keep the raw data set as "data1". 
 
-
+```{r}
+read.csv("activity.csv") -> data1
+summary(data1)
+```
 
 ## What is mean total number of steps taken per day?
+Calculate total number of steps taken each day, save it as "tot_day", and make a histogram plot.
+```{r}
+tapply(data1$steps, data1$date, sum, na.rm=T) -> tot_day
+hist(tot_day,20)
+```
 
-
+Calculate and report the mean and median total number of steps taken per day
+```{r}
+mean_day <- mean(tot_day)
+median_day <- median(tot_day)
+```
+For total number of steps taken per day, the mean value is `r mean_day` steps, the median value is `r median_day` steps.
 
 ## What is the average daily activity pattern?
 
-
+Using "reshape2" library, melt the raw data, and then cast it to calculate the mean value for each interval.
+```{r}
+library(reshape2)
+melt(data1, id=c("date", "interval"))-> data3
+dcast(data3, interval~variable, mean, na.rm=T) -> mean_int
+plot(mean_int, type='l')
+mean_int$interval[which(mean_int$steps == max(mean_int$steps))] -> max_int
+```
+Among the intervals, interval `r max_int` contains the maximum number of steps.
 
 ## Imputing missing values
+
+Calculate and report the total number of missing values in the dataset
+
+```{r}
+sum(is.na(data1$steps)) -> miss_count
+
+```
+totally have `r miss_count` missing value
+
+Replace the NA's by the mean value of that 5 min interval. And save it in "data4"
+```{r}
+data4 <- data1
+for (i in which(is.na(data1$steps))) {
+    data4[i, ]$steps <- mean_int[mean_int$interval==data4[i,]$interval,]$steps
+    }
+```
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day
+```{r}
+tapply(data4$steps, data4$date, sum, na.rm=T) -> tot_day_new
+hist(tot_day_new,20)
+mean_day_new <- mean(tot_day_new)
+median_day_new <- median(tot_day_new)
+```
+So, for total steps taken per day, after imputing missing data with 5 min interval mean value, the mean value is `r mean_day_new` steps, the median value is `r median_day_new` steps. They are different from previous value.
+
+According to my calculation results, it seems that imputing missiong data have influence on the mean value and median value calculation, it creates a bigger number...
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+```{r}
+WeekendOrNot <- character(length = length(data4$date))
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期一"] <- "weekday"
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期二"] <- "weekday"
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期三"] <- "weekday"
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期四"] <- "weekday"
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期五"] <- "weekday"
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期六"] <- "weekend"
+WeekendOrNot[weekdays(as.Date(data4$date)) =="星期日"] <- "weekend"
+WeekendOrNot <- factor(WeekendOrNot, levels=c("weekday", "weekend"))
+data4 <- cbind(data4, WeekendOrNot)
+```
+Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+
+```{r}
+melt(data4, id = c("interval", "WeekendOrNot", "date"))-> data5
+dcast(data5, interval + WeekendOrNot ~ variable, mean) -> data6
+library(lattice)
+xyplot(steps ~ interval | factor(WeekendOrNot), data = data6, aspect = 1/2, type = "l")
+```
+
